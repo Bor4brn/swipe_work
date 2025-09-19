@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../constants/app_constants.dart';
 import '../../features/jobs/data/models/job_model.dart';
+import '../../features/profile/data/models/user_profile.dart';
 
 // Provider for OpenAI service
 final openAIServiceProvider = Provider<OpenAIService>((ref) {
@@ -107,8 +108,17 @@ class OpenAIService {
   // Private helper methods
 
   String _buildCoverLetterPrompt(JobModel job, UserProfile userProfile) {
+    final experienceDescription = _formatExperience(userProfile);
+    final education = userProfile.educationLevel ?? 'Belirtilmemiş';
+    final skills = userProfile.skills.isNotEmpty
+        ? userProfile.skills.join(', ')
+        : 'Belirtilmemiş';
+    final preferredRoles = userProfile.preferredCategories.isNotEmpty
+        ? userProfile.preferredCategories.join(', ')
+        : 'Belirtilmemiş';
+
     return '''
-Türkçe bir kapak mektubu yazın. 
+Türkçe bir kapak mektubu yazın.
 
 İş İlanı:
 - Pozisyon: ${job.title}
@@ -119,9 +129,12 @@ Türkçe bir kapak mektubu yazın.
 
 Aday Profili:
 - Ad: ${userProfile.fullName}
-- Deneyim: ${userProfile.experience}
-- Yetenekler: ${userProfile.skills.join(', ')}
-- Eğitim: ${userProfile.education}
+- Konum: ${userProfile.location ?? 'Belirtilmemiş'}
+- Mevcut Pozisyon: ${userProfile.jobTitle ?? 'Belirtilmemiş'}
+- Deneyim: $experienceDescription
+- Yetenekler: $skills
+- Eğitim: $education
+- Tercih Edilen Roller: $preferredRoles
 
 Lütfen profesyonel, kişisel ve bu iş için özel olarak yazılmış bir kapak mektubu oluşturun. Türk iş kültürüne uygun ve samimi bir ton kullanın.
 ''';
@@ -167,7 +180,16 @@ Lütfen şu bilgileri JSON formatında döndürün:
 ''';
   }
 
-  String _buildQuestionAnswerPrompt(String question, JobModel job, UserProfile userProfile) {
+  String _buildQuestionAnswerPrompt(
+    String question,
+    JobModel job,
+    UserProfile userProfile,
+  ) {
+    final experienceDescription = _formatExperience(userProfile);
+    final skills = userProfile.skills.isNotEmpty
+        ? userProfile.skills.join(', ')
+        : 'Belirtilmemiş';
+
     return '''
 Aşağıdaki iş başvuru sorusunu Türkçe olarak cevaplayın:
 
@@ -178,11 +200,23 @@ Soru: $question
 - Şirket: ${job.company}
 
 Aday Profili:
-- Deneyim: ${userProfile.experience}
-- Yetenekler: ${userProfile.skills.join(', ')}
+- Deneyim: $experienceDescription
+- Yetenekler: $skills
 
 Kısa, profesyonel ve samimi bir cevap verin. Adayın niteliklerini bu iş için nasıl uygun olduğunu vurgulayın.
 ''';
+  }
+
+  String _formatExperience(UserProfile userProfile) {
+    if (userProfile.experienceYears <= 0) {
+      return 'Giriş seviyesinde deneyim';
+    }
+
+    if (userProfile.experienceYears == 1) {
+      return '1 yıllık profesyonel deneyim';
+    }
+
+    return '${userProfile.experienceYears} yıllık profesyonel deneyim';
   }
 
   String _buildATSOptimizationPrompt(String originalCV, JobModel job) {
@@ -222,20 +256,6 @@ Optimize edilmiş CV'yi döndürün.
 }
 
 // Data classes
-
-class UserProfile {
-  final String fullName;
-  final String experience;
-  final List<String> skills;
-  final String education;
-
-  UserProfile({
-    required this.fullName,
-    required this.experience,
-    required this.skills,
-    required this.education,
-  });
-}
 
 class CVData {
   final String fullName;
